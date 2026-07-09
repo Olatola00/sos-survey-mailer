@@ -888,56 +888,13 @@ def main() -> None:
     smtp_cfg = _validate_secrets()
 
     # ═════════════════════════════════════════════════════════════════════
-    # SECTION 1 — Email Template Builder (always visible, no CSV required)
-    # ═════════════════════════════════════════════════════════════════════
-    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-    st.markdown(
-        "<div class='section-title'><span>✉️</span> Section 1 &mdash; Email Template Builder</div>",
-        unsafe_allow_html=True,
-    )
-
-    tab_preview, tab_edit = st.tabs(["👁️ Visual Preview", "📝 Edit HTML Code"])
-
-    with tab_edit:
-        st.info(
-            "✏️ **Edit the raw HTML below.** The placeholders `{name}` and `{email}` "
-            "are injected dynamically for each recipient — **do not remove them**. "
-            "All other HTML can be freely modified. Changes persist until the page "
-            "is closed or refreshed."
-        )
-        st.text_area(
-            label="HTML Source",
-            key="html_template",
-            height=450,
-            help="Edit the email body. Keep {name} and {email} placeholders intact.",
-            label_visibility="collapsed",
-        )
-
-    with tab_preview:
-        try:
-            preview_html = st.session_state.html_template.format(
-                name="[Recipient Name]",
-                email="test@example.com",
-            )
-        except (KeyError, ValueError):
-            preview_html = (
-                "<p style='color:red;font-family:Arial'>"
-                "⚠️ Template error: check that <code>{name}</code> and "
-                "<code>{email}</code> placeholders are present and properly formatted."
-                "</p>"
-            )
-        components.html(preview_html, height=450, scrolling=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ═════════════════════════════════════════════════════════════════════
-    # SECTION 2 — Data Ingestion & Column Mapping
+    # Upload Recipients
     # ═════════════════════════════════════════════════════════════════════
     st.markdown(
         """
         <div class="section-card">
             <div class="section-title">
-                <span>📂</span> Section 2 &mdash; Data Ingestion &amp; Column Mapping
+                <span>📂</span> Upload Your Recipients
             </div>
         """,
         unsafe_allow_html=True,
@@ -993,21 +950,21 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div class='section-title'><span>🔍</span> Auto-Detection Results</div>",
+        "<div class='section-title'><span>🔍</span> We found these columns in your file</div>",
         unsafe_allow_html=True,
     )
 
     chip_email = (
-        f"<div class='detect-chip'>✉️ Email column: <strong>{detected_email_col}</strong></div>"
+        f"<div class='detect-chip'>✉️ Email column &rarr; <strong>{detected_email_col}</strong></div>"
         if detected_email_col
-        else "<div class='detect-chip' style='background:#3a1a1a;color:#f85149;border-color:#6a2020;'>⚠️ Email column: <strong>not detected</strong></div>"
+        else "<div class='detect-chip' style='background:#FEF2F2;color:#DC2626;border-color:#FECACA;'>⚠️ Email column: <strong>not detected</strong></div>"
     )
     chip_name = (
-        f"<div class='detect-chip'>🧑 Name column: <strong>{detected_name_col}</strong></div>"
+        f"<div class='detect-chip'>🧑 Name column &rarr; <strong>{detected_name_col}</strong></div>"
         if detected_name_col
         else (
-            "<div class='detect-chip' style='background:#3a2e1a;color:#e3b341;"
-            "border-color:#6a5020;'>&#8212; Name column: <strong>not detected</strong>"
+            "<div class='detect-chip' style='background:#FFFBEB;color:#D97706;"
+            "border-color:#FDE68A;'>&#8212; Name column: <strong>not detected</strong>"
             " (will use &#39;Researcher&#39;)</div>"
         )
     )
@@ -1018,7 +975,7 @@ def main() -> None:
     # ── Column selectors ─────────────────────────────────────────────────
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='section-title'><span>🎛️</span> Verify or Override Column Mapping</div>",
+        "<div class='section-title'><span>🎯</span> Confirm which columns to use</div>",
         unsafe_allow_html=True,
     )
 
@@ -1101,8 +1058,8 @@ def main() -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
-        "<p style='color:#8b949e;font-size:0.85rem;margin:0 0 8px 0;'>"
-        "📋 <strong>Data Preview</strong> — first 5 rows</p>",
+        "<p style='color:#6B7280;font-size:0.85rem;font-weight:600;margin:0 0 8px 0;'>"
+        "📋 A quick look at your data &mdash; first 5 rows</p>",
         unsafe_allow_html=True,
     )
     st.dataframe(df.head(5), use_container_width=True)
@@ -1110,11 +1067,11 @@ def main() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
     # ═════════════════════════════════════════════════════════════════════
-    # SECTION 2 — Campaign & Smart Batching
+    # How many emails do you want to send?
     # ═════════════════════════════════════════════════════════════════════
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='section-title'><span>⚙️</span> Section 3 &mdash; Campaign &amp; Batch Configuration</div>",
+        "<div class='section-title'><span>⚡</span> How many emails do you want to send?</div>",
         unsafe_allow_html=True,
     )
 
@@ -1161,11 +1118,53 @@ def main() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
     # ═════════════════════════════════════════════════════════════════════
-    # SECTION 4 — Execution Engine
+    # Compose Your Email
     # ═════════════════════════════════════════════════════════════════════
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='section-title'><span>🚀</span> Section 4 &mdash; Execution Engine</div>",
+        "<div class='section-title'><span>✉️</span> Compose your email</div>",
+        unsafe_allow_html=True,
+    )
+
+    tab_preview, tab_edit = st.tabs(["👁️ Visual Preview", "📝 Edit HTML"])
+
+    with tab_edit:
+        st.info(
+            "✏️ **The placeholders `{name}` and `{email}` are required** — they get replaced "
+            "with each recipient's actual name and email address at send time. "
+            "Feel free to edit everything else to suit your campaign."
+        )
+        st.text_area(
+            label="HTML Source",
+            key="html_template",
+            height=420,
+            help="Edit the email HTML. Keep {name} and {email} placeholders intact.",
+            label_visibility="collapsed",
+        )
+
+    with tab_preview:
+        try:
+            preview_html = st.session_state.html_template.format(
+                name="[Recipient Name]",
+                email="test@example.com",
+            )
+        except (KeyError, ValueError):
+            preview_html = (
+                "<p style='color:#DC2626;font-family:Arial;padding:16px'>"
+                "⚠️ Something looks off in the template. Make sure <code>{name}</code> "
+                "and <code>{email}</code> are both present and correctly formatted."
+                "</p>"
+            )
+        components.html(preview_html, height=420, scrolling=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ═════════════════════════════════════════════════════════════════════
+    # Ready to Send
+    # ═════════════════════════════════════════════════════════════════════
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='section-title'><span>🚀</span> Ready to send?</div>",
         unsafe_allow_html=True,
     )
 
@@ -1252,8 +1251,8 @@ def main() -> None:
     st.markdown(
         """
         <hr>
-        <p style="text-align:center;color:#484f58;font-size:0.78rem;margin:0;">
-            Secured via Amazon SES SMTP &nbsp;·&nbsp;
+        <p style="text-align:center;color:#9CA3AF;font-size:0.78rem;margin:0;">
+            Secured via Amazon SES SMTP &nbsp;&middot;&nbsp;
             All transmissions are TLS-encrypted
         </p>
         """,
