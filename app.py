@@ -25,6 +25,7 @@ from email.mime.text import MIMEText
 # ---------------------------------------------------------------------------
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from rapidfuzz import fuzz, process
 
 # ===========================================================================
@@ -514,8 +515,9 @@ def _execute_send_loop(
                 else:
                     recipient_name = "Researcher"
 
-                # Build HTML body
-                html_body = HTML_TEMPLATE.format(
+                # Build HTML body — reads from live session state so any
+                # edits made in the Template Builder are reflected here.
+                html_body = st.session_state.html_template.format(
                     name=recipient_name,
                     email=recipient_email,
                 )
@@ -596,6 +598,10 @@ def _execute_send_loop(
 
 
 def main() -> None:
+    # ── Seed session state with default HTML template (runs once) ────────
+    if "html_template" not in st.session_state:
+        st.session_state.html_template = HTML_TEMPLATE
+
     # ── Inject custom CSS ────────────────────────────────────────────────
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
@@ -843,11 +849,58 @@ def main() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
     # ═════════════════════════════════════════════════════════════════════
-    # SECTION 3 — Execution Engine
+    # SECTION 3 — Email Template Builder (WYSIWYG)
+    # ═════════════════════════════════════════════════════════════════════
+    st.markdown(
+        "<div class='section-card'>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div class='section-title'><span>✉️</span> Section 3 &mdash; Email Template Builder</div>",
+        unsafe_allow_html=True,
+    )
+
+    tab_preview, tab_edit = st.tabs(["👁️ Visual Preview", "📝 Edit HTML Code"])
+
+    with tab_edit:
+        st.info(
+            "✏️ **Edit the raw HTML below.** The placeholders `{name}` and `{email}` "
+            "are injected dynamically for each recipient — **do not remove them**. "
+            "All other HTML can be freely modified. Changes persist until the page "
+            "is closed or refreshed."
+        )
+        # st.text_area writes directly back to session state via the key binding
+        st.text_area(
+            label="HTML Source",
+            key="html_template",
+            height=450,
+            help="Edit the email body. Keep {name} and {email} placeholders intact.",
+            label_visibility="collapsed",
+        )
+
+    with tab_preview:
+        try:
+            preview_html = st.session_state.html_template.format(
+                name="[Recipient Name]",
+                email="test@example.com",
+            )
+        except (KeyError, ValueError):
+            preview_html = (
+                "<p style='color:red;font-family:Arial'>"
+                "⚠️ Template error: check that <code>{name}</code> and "
+                "<code>{email}</code> placeholders are present and properly formatted."
+                "</p>"
+            )
+        components.html(preview_html, height=450, scrolling=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ═════════════════════════════════════════════════════════════════════
+    # SECTION 4 — Execution Engine
     # ═════════════════════════════════════════════════════════════════════
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='section-title'><span>🚀</span> Section 3 &mdash; Execution Engine</div>",
+        "<div class='section-title'><span>🚀</span> Section 4 &mdash; Execution Engine</div>",
         unsafe_allow_html=True,
     )
 
