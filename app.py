@@ -31,7 +31,7 @@ from rapidfuzz import fuzz, process
 # PAGE CONFIGURATION
 # ===========================================================================
 st.set_page_config(
-    page_title="AfricaRVI · Survey Distribution Engine",
+    page_title="SOS Survey",
     page_icon="📧",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -603,11 +603,10 @@ def main() -> None:
     st.markdown(
         """
         <div class="hero-block">
-            <h1>📧 AfricaRVI · Survey Distribution Engine</h1>
+            <h1>📧 SOS Survey</h1>
             <p>
                 Secure, high-volume academic survey email dispatcher &nbsp;·&nbsp;
-                Powered by Amazon SES SMTP &nbsp;·&nbsp;
-                African Research Visibility Initiative
+                Powered by Amazon SES
             </p>
         </div>
         """,
