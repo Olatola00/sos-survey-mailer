@@ -623,22 +623,65 @@ def main() -> None:
     smtp_cfg = _validate_secrets()
 
     # ═════════════════════════════════════════════════════════════════════
-    # SECTION 1 — Data Ingestion & Column Mapping
+    # SECTION 1 — Email Template Builder (always visible, no CSV required)
+    # ═════════════════════════════════════════════════════════════════════
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='section-title'><span>✉️</span> Section 1 &mdash; Email Template Builder</div>",
+        unsafe_allow_html=True,
+    )
+
+    tab_preview, tab_edit = st.tabs(["👁️ Visual Preview", "📝 Edit HTML Code"])
+
+    with tab_edit:
+        st.info(
+            "✏️ **Edit the raw HTML below.** The placeholders `{name}` and `{email}` "
+            "are injected dynamically for each recipient — **do not remove them**. "
+            "All other HTML can be freely modified. Changes persist until the page "
+            "is closed or refreshed."
+        )
+        st.text_area(
+            label="HTML Source",
+            key="html_template",
+            height=450,
+            help="Edit the email body. Keep {name} and {email} placeholders intact.",
+            label_visibility="collapsed",
+        )
+
+    with tab_preview:
+        try:
+            preview_html = st.session_state.html_template.format(
+                name="[Recipient Name]",
+                email="test@example.com",
+            )
+        except (KeyError, ValueError):
+            preview_html = (
+                "<p style='color:red;font-family:Arial'>"
+                "⚠️ Template error: check that <code>{name}</code> and "
+                "<code>{email}</code> placeholders are present and properly formatted."
+                "</p>"
+            )
+        components.html(preview_html, height=450, scrolling=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ═════════════════════════════════════════════════════════════════════
+    # SECTION 2 — Data Ingestion & Column Mapping
     # ═════════════════════════════════════════════════════════════════════
     st.markdown(
         """
         <div class="section-card">
             <div class="section-title">
-                <span>📂</span> Section 1 &mdash; Data Ingestion &amp; Column Mapping
+                <span>📂</span> Section 2 &mdash; Data Ingestion &amp; Column Mapping
             </div>
         """,
         unsafe_allow_html=True,
     )
 
     uploaded_file = st.file_uploader(
-        "Upload your recipient CSV file",
-        type=["csv"],
-        help="Upload a comma-separated file containing at least one column "
+        "Upload your recipient file (.csv, .xlsx, .xls)",
+        type=["csv", "xlsx", "xls"],
+        help="Upload a CSV or Excel file containing at least one column "
              "with recipient email addresses.",
         key="csv_uploader",
     )
@@ -650,23 +693,27 @@ def main() -> None:
         st.markdown(
             """
             <div class="info-box" style="margin-top:8px;">
-                👆 Upload a <strong>.csv</strong> file above to get started.
-                The engine will automatically detect email and name columns.
+                👆 Upload a <strong>.csv</strong> or <strong>.xlsx / .xls</strong>
+                file above to continue. The engine will automatically detect
+                email and name columns.
             </div>
             """,
             unsafe_allow_html=True,
         )
         st.stop()
 
-    # ── Load CSV ──────────────────────────────────────────────────────────
+    # ── Load file (CSV or Excel) ─────────────────────────────────────────
     try:
-        df = pd.read_csv(uploaded_file)
+        if uploaded_file.name.lower().endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
     except Exception as exc:
-        st.error(f"❌ Failed to parse CSV: {exc}")
+        st.error(f"❌ Failed to parse file: {exc}")
         st.stop()
 
     if df.empty:
-        st.error("❌ The uploaded CSV appears to be empty. Please upload a valid file.")
+        st.error("❌ The uploaded file appears to be empty. Please upload a valid file.")
         st.stop()
 
     total_rows = len(df)
@@ -802,7 +849,7 @@ def main() -> None:
     # ═════════════════════════════════════════════════════════════════════
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='section-title'><span>⚙️</span> Section 2 &mdash; Campaign &amp; Batch Configuration</div>",
+        "<div class='section-title'><span>⚙️</span> Section 3 &mdash; Campaign &amp; Batch Configuration</div>",
         unsafe_allow_html=True,
     )
 
@@ -845,53 +892,6 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ═════════════════════════════════════════════════════════════════════
-    # SECTION 3 — Email Template Builder (WYSIWYG)
-    # ═════════════════════════════════════════════════════════════════════
-    st.markdown(
-        "<div class='section-card'>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<div class='section-title'><span>✉️</span> Section 3 &mdash; Email Template Builder</div>",
-        unsafe_allow_html=True,
-    )
-
-    tab_preview, tab_edit = st.tabs(["👁️ Visual Preview", "📝 Edit HTML Code"])
-
-    with tab_edit:
-        st.info(
-            "✏️ **Edit the raw HTML below.** The placeholders `{name}` and `{email}` "
-            "are injected dynamically for each recipient — **do not remove them**. "
-            "All other HTML can be freely modified. Changes persist until the page "
-            "is closed or refreshed."
-        )
-        # st.text_area writes directly back to session state via the key binding
-        st.text_area(
-            label="HTML Source",
-            key="html_template",
-            height=450,
-            help="Edit the email body. Keep {name} and {email} placeholders intact.",
-            label_visibility="collapsed",
-        )
-
-    with tab_preview:
-        try:
-            preview_html = st.session_state.html_template.format(
-                name="[Recipient Name]",
-                email="test@example.com",
-            )
-        except (KeyError, ValueError):
-            preview_html = (
-                "<p style='color:red;font-family:Arial'>"
-                "⚠️ Template error: check that <code>{name}</code> and "
-                "<code>{email}</code> placeholders are present and properly formatted."
-                "</p>"
-            )
-        components.html(preview_html, height=450, scrolling=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -988,7 +988,6 @@ def main() -> None:
         """
         <hr>
         <p style="text-align:center;color:#484f58;font-size:0.78rem;margin:0;">
-            AfricaRVI Survey Distribution Engine &nbsp;·&nbsp;
             Secured via Amazon SES SMTP &nbsp;·&nbsp;
             All transmissions are TLS-encrypted
         </p>
