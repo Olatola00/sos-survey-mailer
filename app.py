@@ -793,7 +793,7 @@ def _execute_send_loop(
     sent_fail = 0
     fail_log: list[str] = []
 
-    progress_bar = st.progress(0.0, text=f"Connecting to Amazon SES …")
+    progress_bar = st.progress(0.0, text=f"Connecting to {smtp_cfg['SMTP_SERVER']} …")
     status_line = st.empty()
     error_box = st.empty()
 
@@ -876,8 +876,10 @@ def _execute_send_loop(
     except Exception as exc:  # noqa: BLE001
         st.error(
             f"🔴 **Connection error during {label}:** {exc}\n\n"
-            "Please verify your SMTP credentials in `.streamlit/secrets.toml` "
-            "and ensure the SES account is out of sandbox mode."
+            f"Server: `{smtp_cfg['SMTP_SERVER']}` · "
+            f"User: `{smtp_cfg['SMTP_USER']}`\n\n"
+            "Please verify your SMTP credentials in Streamlit Secrets "
+            "and ensure the account is properly configured for sending."
         )
         return
 
