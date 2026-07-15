@@ -558,12 +558,33 @@ iframe {
 # ===========================================================================
 
 
-def _validate_secrets() -> dict:
+def _validate_secrets() -> dict[str, dict]:
     """
-    Validate that all required SMTP secrets are present.
+    Discover and validate SMTP profiles from Streamlit secrets.
 
-    Returns a dict with the secrets if valid, otherwise calls st.stop()
-    after displaying a prominent error message.
+    Supports two layouts:
+
+    **Multi-profile (recommended)**::
+
+        [smtp_profiles.SES_East]
+        SMTP_SERVER = "..."
+        ...
+
+        [smtp_profiles.SES_West]
+        SMTP_SERVER = "..."
+        ...
+
+    **Legacy flat keys (single profile, backwards-compatible)**::
+
+        SMTP_SERVER = "..."
+        SMTP_PORT   = 587
+        ...
+
+    Returns
+    -------
+    dict[str, dict]
+        Mapping of ``{profile_name: {SMTP_SERVER, SMTP_PORT, ...}}``.
+        If flat keys are detected they are wrapped under the name "Default".
     """
     required_keys = [
         "SMTP_SERVER",
@@ -572,45 +593,73 @@ def _validate_secrets() -> dict:
         "SMTP_PASSWORD",
         "SENDER_EMAIL",
     ]
+
+    # ── Try multi-profile layout first ────────────────────────────────
+    if "smtp_profiles" in st.secrets:
+        profiles: dict[str, dict] = {}
+        all_errors: list[str] = []
+
+        for name in st.secrets["smtp_profiles"]:
+            section = st.secrets["smtp_profiles"][name]
+            missing = [k for k in required_keys if k not in section]
+            if missing:
+                all_errors.append(
+                    f"Profile <strong>{name}</strong>: missing "
+                    + ", ".join(f"<code>{k}</code>" for k in missing)
+                )
+            else:
+                profiles[name] = {k: section[k] for k in required_keys}
+
+        if all_errors:
+            st.markdown(
+                '<div style="background:#FEF2F2;border:2px solid #DC2626;'
+                'border-radius:12px;padding:24px 28px;margin-top:40px;">'
+                '<h3 style="color:#DC2626;margin:0 0 12px 0;">'
+                "⛔ SMTP Profile Errors</h3>"
+                '<ul style="color:#7F1D1D;margin:0 0 16px 16px;">'
+                + "".join(f"<li>{e}</li>" for e in all_errors)
+                + "</ul>"
+                '<p style="color:#6B7280;font-size:0.85rem;margin:0;">'
+                "Fix the profiles in <code>.streamlit/secrets.toml</code> "
+                "and restart the app.</p></div>",
+                unsafe_allow_html=True,
+            )
+            st.stop()
+
+        if not profiles:
+            st.error(
+                "⛔ `[smtp_profiles]` block found but contains no profiles. "
+                "Add at least one profile section."
+            )
+            st.stop()
+
+        return profiles
+
+    # ── Fallback: legacy flat keys → wrapped as 'Default' ────────────
     missing = [k for k in required_keys if k not in st.secrets]
 
     if missing:
         st.markdown(
-            """
-            <div style="
-                background: #3a1a1a;
-                border: 2px solid #f85149;
-                border-radius: 12px;
-                padding: 28px 32px;
-                margin-top: 40px;
-            ">
-                <h3 style="color: #f85149; margin: 0 0 12px 0;">
-                    ⛔ SMTP Configuration Missing
-                </h3>
-                <p style="color: #ccc; margin: 0 0 12px 0;">
-                    This application requires Amazon SES SMTP credentials stored in
-                    <code style="background:#222;padding:2px 6px;border-radius:4px;">
-                    .streamlit/secrets.toml</code>.
-                </p>
-                <p style="color: #f0a0a0; margin: 0 0 8px 0;">
-                    <strong>Missing keys:</strong>
-                </p>
-                <ul style="color: #f0a0a0; margin: 0 0 16px 16px;">
-            """
+            '<div style="background:#FEF2F2;border:2px solid #DC2626;'
+            'border-radius:12px;padding:24px 28px;margin-top:40px;">'
+            '<h3 style="color:#DC2626;margin:0 0 12px 0;">'
+            "⛔ SMTP Configuration Missing</h3>"
+            '<p style="color:#374151;margin:0 0 12px 0;">'
+            "This app requires SMTP credentials in "
+            "<code>.streamlit/secrets.toml</code>.</p>"
+            '<p style="color:#7F1D1D;margin:0 0 8px 0;">'
+            "<strong>Missing keys:</strong></p>"
+            '<ul style="color:#7F1D1D;margin:0 0 16px 16px;">'
             + "".join(f"<li><code>{k}</code></li>" for k in missing)
-            + """
-                </ul>
-                <p style="color: #999; font-size: 0.85rem; margin: 0;">
-                    Please contact the system administrator to configure the secrets
-                    file and restart the application.
-                </p>
-            </div>
-            """,
+            + "</ul>"
+            '<p style="color:#6B7280;font-size:0.85rem;margin:0;">'
+            "Tip: use <code>[smtp_profiles.MyRoute]</code> sections "
+            "to configure multiple sending routes.</p></div>",
             unsafe_allow_html=True,
         )
         st.stop()
 
-    return {k: st.secrets[k] for k in required_keys}
+    return {"Default": {k: st.secrets[k] for k in required_keys}}
 
 
 def _fuzzy_detect_column(
@@ -885,7 +934,8 @@ def main() -> None:
     )
 
     # ── Validate secrets (halts app if missing) ───────────────────────────
-    smtp_cfg = _validate_secrets()
+    smtp_profiles = _validate_secrets()
+    profile_names = list(smtp_profiles.keys())
 
     # ═════════════════════════════════════════════════════════════════════
     # Provide Recipients
@@ -1173,9 +1223,33 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    # ── Route selector ────────────────────────────────────────────────
+    if len(profile_names) == 1:
+        selected_route = profile_names[0]
+        st.markdown(
+            f"<p style='color:#6B7280;font-size:0.88rem;margin:0 0 8px 0;'>"
+            f"📡 Sending via <strong>{selected_route}</strong></p>",
+            unsafe_allow_html=True,
+        )
+    else:
+        selected_route = st.selectbox(
+            "📡 Select Sending Route",
+            options=profile_names,
+            key="smtp_route_select",
+            help="Choose which SMTP profile to use for this campaign.",
+        )
+
+    active_smtp_cfg = smtp_profiles[selected_route]
+    st.markdown(
+        f"<div class='detect-chip' style='margin-bottom:16px;'>"
+        f"📧 Sending from: <strong>{active_smtp_cfg['SENDER_EMAIL']}</strong>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
     st.markdown(
         """
-        <p style="color:#8b949e;font-size:0.88rem;margin:0 0 18px 0;">
+        <p style="color:#6B7280;font-size:0.88rem;margin:0 0 18px 0;">
             Run a <strong>Test Batch</strong> (first 2 rows) to verify formatting
             before committing to a full send. When ready, use
             <strong>Execute Full Batch Send</strong>.
@@ -1204,8 +1278,6 @@ def main() -> None:
             help=f"Send to the configured batch of {actual_batch:,} recipients.",
         )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # ═════════════════════════════════════════════════════════════════════
     # EXECUTION HANDLING
     # ═════════════════════════════════════════════════════════════════════
@@ -1222,7 +1294,7 @@ def main() -> None:
             unsafe_allow_html=True,
         )
         _execute_send_loop(
-            smtp_cfg=smtp_cfg,
+            smtp_cfg=active_smtp_cfg,
             rows=test_rows,
             email_col=selected_email_col,
             name_col=selected_name_col,
@@ -1241,7 +1313,7 @@ def main() -> None:
             unsafe_allow_html=True,
         )
         _execute_send_loop(
-            smtp_cfg=smtp_cfg,
+            smtp_cfg=active_smtp_cfg,
             rows=full_rows,
             email_col=selected_email_col,
             name_col=selected_name_col,
