@@ -888,54 +888,74 @@ def main() -> None:
     smtp_cfg = _validate_secrets()
 
     # ═════════════════════════════════════════════════════════════════════
-    # Upload Recipients
+    # Provide Recipients
     # ═════════════════════════════════════════════════════════════════════
     st.markdown(
         """
-        <div class="section-card">
-            <div class="section-title">
-                <span>📂</span> Upload Your Recipients
-            </div>
+        <div class="section-title">
+            <span>📂</span> Provide Your Recipients
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
-    uploaded_file = st.file_uploader(
-        "Upload your recipient file (.csv, .xlsx, .xls)",
-        type=["csv", "xlsx", "xls"],
-        help="Upload a CSV or Excel file containing at least one column "
-             "with recipient email addresses.",
-        key="csv_uploader",
+    input_mode = st.radio(
+        "Input Method", 
+        ["Upload File", "Manual Entry"], 
+        horizontal=True, 
+        label_visibility="collapsed"
     )
 
-    st.markdown("</div>", unsafe_allow_html=True)  # close section-card
+    df = None
 
-    # ── Guard: nothing to do until a file is uploaded ────────────────────
-    if uploaded_file is None:
+    if input_mode == "Upload File":
+        uploaded_file = st.file_uploader(
+            "Upload your recipient file (.csv, .xlsx, .xls)",
+            type=["csv", "xlsx", "xls"],
+            help="Upload a CSV or Excel file containing at least one column "
+                 "with recipient email addresses.",
+            key="csv_uploader",
+        )
+        if uploaded_file:
+            try:
+                if uploaded_file.name.lower().endswith(".csv"):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+            except Exception as exc:
+                st.error(f"❌ Failed to parse file: {exc}")
+                st.stop()
+    else:
+        manual_input = st.text_area(
+            "Enter email addresses",
+            placeholder="researcher1@example.com, researcher2@example.com\nresearcher3@example.com",
+            help="Separate emails using commas or new lines.",
+            height=150,
+        )
+        if manual_input.strip():
+            import re
+            raw_emails = re.split(r'[,\n]+', manual_input)
+            parsed_emails = [e.strip() for e in raw_emails if e.strip()]
+            if parsed_emails:
+                df = pd.DataFrame({"Email Address": parsed_emails})
+            else:
+                st.warning("No emails found in the text provided.")
+
+    # ── Guard: nothing to do until data is provided ────────────────────
+    if df is None:
+        msg = "👆 Upload a file" if input_mode == "Upload File" else "👆 Enter at least one email address"
         st.markdown(
-            """
+            f"""
             <div class="info-box" style="margin-top:8px;">
-                👆 Upload a <strong>.csv</strong> or <strong>.xlsx / .xls</strong>
-                file above to continue. The engine will automatically detect
-                email and name columns.
+                {msg} to continue.
             </div>
             """,
             unsafe_allow_html=True,
         )
         st.stop()
 
-    # ── Load file (CSV or Excel) ─────────────────────────────────────────
-    try:
-        if uploaded_file.name.lower().endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
-    except Exception as exc:
-        st.error(f"❌ Failed to parse file: {exc}")
-        st.stop()
-
     if df.empty:
-        st.error("❌ The uploaded file appears to be empty. Please upload a valid file.")
+        st.error("❌ The provided data appears to be empty. Please provide valid recipients.")
         st.stop()
 
     total_rows = len(df)
@@ -945,10 +965,6 @@ def main() -> None:
     detected_email_col, detected_name_col = _auto_detect_columns(df)
 
     # ── Display detection chips ───────────────────────────────────────────
-    st.markdown(
-        "<div class='section-card'>",
-        unsafe_allow_html=True,
-    )
     st.markdown(
         "<div class='section-title'><span>🔍</span> We found these columns in your file</div>",
         unsafe_allow_html=True,
@@ -970,10 +986,8 @@ def main() -> None:
     )
 
     st.markdown(chip_email + chip_name, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Column selectors ─────────────────────────────────────────────────
-    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
         "<div class='section-title'><span>🎯</span> Confirm which columns to use</div>",
         unsafe_allow_html=True,
@@ -1064,12 +1078,9 @@ def main() -> None:
     )
     st.dataframe(df.head(5), use_container_width=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # ═════════════════════════════════════════════════════════════════════
     # How many emails do you want to send?
     # ═════════════════════════════════════════════════════════════════════
-    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
         "<div class='section-title'><span>⚡</span> How many emails do you want to send?</div>",
         unsafe_allow_html=True,
@@ -1115,12 +1126,9 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # ═════════════════════════════════════════════════════════════════════
     # Compose Your Email
     # ═════════════════════════════════════════════════════════════════════
-    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
         "<div class='section-title'><span>✉️</span> Compose your email</div>",
         unsafe_allow_html=True,
@@ -1157,12 +1165,9 @@ def main() -> None:
             )
         components.html(preview_html, height=420, scrolling=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # ═════════════════════════════════════════════════════════════════════
     # Ready to Send
     # ═════════════════════════════════════════════════════════════════════
-    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(
         "<div class='section-title'><span>🚀</span> Ready to send?</div>",
         unsafe_allow_html=True,
@@ -1210,8 +1215,7 @@ def main() -> None:
         st.markdown("---")
         st.markdown(
             """
-            <div class='section-card' style='border-color:#1266c9;'>
-                <div class='section-title'>
+                <div class='section-title' style='border-color:#1266c9;'>
                     <span>🔬</span> Test Batch — Sending to first 2 recipients
                 </div>
             """,
@@ -1224,15 +1228,13 @@ def main() -> None:
             name_col=selected_name_col,
             label="Test Batch",
         )
-        st.markdown("</div>", unsafe_allow_html=True)
 
     if full_clicked:
         full_rows = df.head(actual_batch)
         st.markdown("---")
         st.markdown(
             f"""
-            <div class='section-card' style='border-color:#e3b341;'>
-                <div class='section-title'>
+                <div class='section-title' style='border-color:#e3b341;'>
                     <span>🔥</span> Full Batch — Sending to {actual_batch:,} recipients
                 </div>
             """,
@@ -1245,7 +1247,6 @@ def main() -> None:
             name_col=selected_name_col,
             label=f"Full Batch ({actual_batch:,})",
         )
-        st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Footer ────────────────────────────────────────────────────────────
     st.markdown(
