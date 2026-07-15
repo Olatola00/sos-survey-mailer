@@ -798,11 +798,18 @@ def _execute_send_loop(
     error_box = st.empty()
 
     try:
-        with smtplib.SMTP(smtp_cfg["SMTP_SERVER"], int(smtp_cfg["SMTP_PORT"])) as server:
+        port = int(smtp_cfg["SMTP_PORT"])
+        # Port 465 → implicit SSL; port 587 (or other) → STARTTLS
+        if port == 465:
+            server = smtplib.SMTP_SSL(smtp_cfg["SMTP_SERVER"], port)
+        else:
+            server = smtplib.SMTP(smtp_cfg["SMTP_SERVER"], port)
             server.ehlo()
             server.starttls()
             server.ehlo()
-            server.login(smtp_cfg["SMTP_USER"], smtp_cfg["SMTP_PASSWORD"])
+        server.login(smtp_cfg["SMTP_USER"], smtp_cfg["SMTP_PASSWORD"])
+
+        try:
 
             for idx, (_, row) in enumerate(rows.iterrows(), start=1):
                 recipient_email = str(row[email_col]).strip()
@@ -870,8 +877,11 @@ def _execute_send_loop(
                     f"📋 Current: `{recipient_email}`"
                 )
 
-                # ── SES throttle safeguard (~10 emails/sec) ──────────
+                # ── Throttle safeguard (~10 emails/sec) ──────────────
                 time.sleep(0.1)
+
+        finally:
+            server.quit()
 
     except Exception as exc:  # noqa: BLE001
         st.error(
