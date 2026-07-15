@@ -804,9 +804,7 @@ def _execute_send_loop(
             server = smtplib.SMTP_SSL(smtp_cfg["SMTP_SERVER"], port)
         else:
             server = smtplib.SMTP(smtp_cfg["SMTP_SERVER"], port)
-            server.ehlo()
             server.starttls()
-            server.ehlo()
         server.login(smtp_cfg["SMTP_USER"], smtp_cfg["SMTP_PASSWORD"])
 
         try:
