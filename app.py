@@ -608,7 +608,7 @@ def _validate_secrets() -> dict[str, dict]:
                     + ", ".join(f"<code>{k}</code>" for k in missing)
                 )
             else:
-                profiles[name] = {k: section[k] for k in required_keys}
+                profiles[name] = {k: str(section[k]).strip() for k in required_keys}
 
         if all_errors:
             st.markdown(
@@ -659,7 +659,7 @@ def _validate_secrets() -> dict[str, dict]:
         )
         st.stop()
 
-    return {"Default": {k: st.secrets[k] for k in required_keys}}
+    return {"Default": {k: str(st.secrets[k]).strip() for k in required_keys}}
 
 
 def _fuzzy_detect_column(
@@ -1242,10 +1242,19 @@ def main() -> None:
         )
 
     active_smtp_cfg = smtp_profiles[selected_route]
+
+    # Show sender + masked credential preview for debugging
+    _pw = active_smtp_cfg['SMTP_PASSWORD']
+    _masked = _pw[:3] + '•' * (len(_pw) - 6) + _pw[-3:] if len(_pw) > 6 else '•' * len(_pw)
     st.markdown(
-        f"<div class='detect-chip' style='margin-bottom:16px;'>"
+        f"<div class='detect-chip' style='margin-bottom:4px;'>"
         f"📧 Sending from: <strong>{active_smtp_cfg['SENDER_EMAIL']}</strong>"
-        f"</div>",
+        f"</div>"
+        f"<p style='color:#9CA3AF;font-size:0.78rem;margin:0 0 16px 0;'>"
+        f"Server: <code>{active_smtp_cfg['SMTP_SERVER']}:{active_smtp_cfg['SMTP_PORT']}</code> · "
+        f"User: <code>{active_smtp_cfg['SMTP_USER']}</code> · "
+        f"Password: <code>{_masked}</code> ({len(_pw)} chars)"
+        f"</p>",
         unsafe_allow_html=True,
     )
 
